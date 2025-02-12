@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Обработка видео</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f8f9fa; }
+    .upload-card { max-width: 500px; margin: 100px auto; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card upload-card shadow-sm rounded">
+      <div class="card-body">
+        <h3 class="card-title text-center mb-4">Обработка видео</h3>
+        <form id="uploadForm" enctype="multipart/form-data">
+          <div class="mb-3">
+            <input type="file" class="form-control" id="video" name="video" accept="video/*" required>
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary">Запустить обработку</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="modal" tabindex="-1" id="progressModal" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Обработка видео</h5>
+        </div>
+        <div class="modal-body">
+          <div class="progress">
+            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal" tabindex="-1" id="resultModal">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Видео обработано</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body text-center">
+          <button id="watchButton" class="btn btn-success me-2">Смотреть онлайн</button>
+          <a id="downloadButton" href="#" class="btn btn-info">Скачать видео</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal" tabindex="-1" id="videoModal" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Просмотр видео</h5>
+          <button type="button" id="backButton" class="btn btn-secondary">Назад</button>
+        </div>
+        <div class="modal-body">
+          <video id="onlineVideo" class="w-100 rounded shadow" controls>
+            <source src="" type="video/mp4">
+            Ваш браузер не поддерживает воспроизведение видео.
+          </video>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    var uploadForm = document.getElementById('uploadForm');
+    var progressModal = new bootstrap.Modal(document.getElementById('progressModal'));
+    var resultModal = new bootstrap.Modal(document.getElementById('resultModal'));
+    var videoModal = new bootstrap.Modal(document.getElementById('videoModal'));
+    uploadForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      progressModal.show();
+      var formData = new FormData();
+      var fileInput = document.getElementById('video');
+      formData.append('video', fileInput.files[0]);
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/upload', true);
+      xhr.upload.onprogress = function(e) {
+        if(e.lengthComputable) {
+          var percent = Math.round((e.loaded / e.total) * 50);
+          updateProgress(percent);
+        }
+      };
+      var progressInterval = setInterval(function() {
+        var currentWidth = parseInt(document.getElementById('progressBar').style.width);
+        if(currentWidth < 90) {
+          updateProgress(currentWidth + 1);
+        }
+      }, 100);
+      xhr.onreadystatechange = function() {
+        if(xhr.readyState === 4) {
+          clearInterval(progressInterval);
+          updateProgress(100);
+          progressModal.hide();
+          var response = JSON.parse(xhr.responseText);
+          if(response.success) {
+            document.getElementById('downloadButton').href = '/download/' + response.output_filename;
+            document.getElementById('watchButton').setAttribute('data-filename', response.output_filename);
+            resultModal.show();
+          }
+        }
+      };
+      xhr.send(formData);
+    });
+    function updateProgress(percent) {
+      var progressBar = document.getElementById('progressBar');
+      progressBar.style.width = percent + '%';
+      progressBar.textContent = percent + '%';
+    }
+    document.getElementById('watchButton').addEventListener('click', function() {
+      var filename = this.getAttribute('data-filename');
+      var videoSource = document.querySelector('#onlineVideo source');
+      videoSource.src = '/outputs/' + filename;
+      document.getElementById('onlineVideo').load();
+      resultModal.hide();
+      videoModal.show();
+    });
+    document.getElementById('backButton').addEventListener('click', function() {
+      videoModal.hide();
+      resultModal.show();
+    });
+  </script>
+</body>
+</html>
